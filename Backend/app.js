@@ -5,15 +5,14 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const app = express();
 const userRouter = require("./routes/user-routes");
+const dotenv = require('dotenv');
 
-require("dotenv").config();
+dotenv.config();
 
 // Middlewares
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: true,
-  credentials: true,
 }
 ));
 app.use("/books", router); // localhost:5000/books

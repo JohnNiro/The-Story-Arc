@@ -2,79 +2,42 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../model/User");
 
-async function signup(req, res) {
-  try {
-    // Get the email and password off req body
-    const { email, password } = req.body;
+const generateToken = require('../utils/jwt');
 
-    // Hash password
-    const hashedPassword = bcrypt.hashSync(password, 8);
+// Register a new user
+exports.registerUser = async(req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        const user = new User({username, email, password});
+        await user.save();
 
-    // Create a user with the daTa
-    await User.create({ email, password: hashedPassword });
+        const token = generateToken(user);
 
-    // respond
-    res.sendStatus(200);
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(400);
-  }
+        res.status(201).json({message: 'User created successfully', token});
+    } catch (error) {
+        res.status(400).json({error: error.message})
+    }
 }
+// Login a user
+exports.loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user  = await User.findOne({email});
 
-async function login(req, res) {
-  try {
-    // Get the email and password off rq body
-    const { email, password } = req.body;
+        if(!user){
+            return res.status(404).json({message: 'User not found'});
+        }
 
-    // Find the user with requested email
-    const user = await User.findOne({ email });
-    if (!user) return res.sendStatus(401);
+        const isMatch = await user.comparePassword(password);
 
-    // Compare sent in password with found user password hash
-    const passwordMatch = bcrypt.compareSync(password, user.password);
-    if (!passwordMatch) return res.sendStatus(401);
+        if(!isMatch){
+            return res.status(400).json({message: 'Invalid credentials'});
+        }
+        const token = generateToken(user);
 
-    // create a jwt token
-    const exp = Date.now() + 1000 * 60 * 60 * 24 * 30;
-    const token = jwt.sign({ sub: user._id, exp }, process.env.SECRET);
+        res.json({message: 'Login successful', token});
 
-    // Set the cookie
-    res.cookie("Authorization", token, {
-      expires: new Date(exp),
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
-
-    // send it
-    res.sendStatus(200);
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(400);
-  }
+    } catch (error) {
+        res.status(400).json({error: error.message})
+    }
 }
-
-function logout(req, res) {
-  try {
-    res.cookie("Authorization", "", { expires: new Date() });
-    res.sendStatus(200);
-  } catch (err) {
-    console.log(err);
-    res.sendStatus(400);
-  }
-}
-
-function checkAuth(req, res) {
-  try {
-    res.sendStatus(200);
-  } catch (err) {
-    return res.sendStatus(400);
-  }
-}
-
-module.exports = {
-  signup,
-  login,
-  logout,
-  checkAuth,
-};
